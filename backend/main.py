@@ -1,4 +1,4 @@
-# main.py
+# импорты нужных библиотек и их методов
 from fastapi import FastAPI, UploadFile, HTTPException
 from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
