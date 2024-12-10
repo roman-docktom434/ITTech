@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Auditor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Auditor</h1>
+        </header>
+        <main>
+            <section class="upload-section">
+                <h2>Загрузка требований</h2>
+                <form id="upload-form">
+                    <label for="file">Выберите PDF:</label>
+                    <input type="file" id="file" accept=".pdf" required>
+                    <button type="submit">Загрузить</button>
+                </form>
+                <div id="upload-result"></div>
+            </section>
+            <section class="check-section">
+                <h2>Проверка сайта</h2>
+                <form id="check-form">
+                    <label for="url">URL сайта:</label>
+                    <input type="url" id="url" placeholder="https://example.com" required>
+                    <button type="submit">Проверить</button>
+                </form>
+                <div id="check-result"></div>
+            </section>
+            <section class="reports-section">
+                <h2>Отчёты</h2>
+                <button id="get-reports">Получить отчёты</button>
+                <div id="reports-list"></div>
+            </section>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
