@@ -14,7 +14,6 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Модели базы данных
 class Requirement(Base):
     __tablename__ = "requirements"
     id = Column(Integer, primary_key=True, index=True)
@@ -29,7 +28,7 @@ class SiteCheck(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# Функции для работы с базой данных
+# Функции для работы с БД
 def get_db():
     db = SessionLocal()
     try:
@@ -37,7 +36,7 @@ def get_db():
     finally:
         db.close()
 
-# Маршрут для загрузки требований из PDF
+# Маршрут для загрузки требований из ПДФ
 @app.post("/upload-requirements/")
 async def upload_requirements(file: UploadFile, db=next(get_db())):
     if not file.filename.endswith(".pdf"):
@@ -52,7 +51,7 @@ async def upload_requirements(file: UploadFile, db=next(get_db())):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Маршрут для проверки сайта
+# Адрес для проверки сайта
 @app.post("/check-site/")
 async def check_site(url: str, db=next(get_db())):
     try:
@@ -77,7 +76,7 @@ async def check_site(url: str, db=next(get_db())):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Маршрут для получения отчетов
+# Адрес для получения отчетов
 @app.get("/reports/")
 async def get_reports(db=next(get_db())):
     reports = db.query(SiteCheck).all()
