@@ -1,7 +1,14 @@
+const API_BASE_URL = "http://127.0.0.1:8000"; // Убедитесь, что это адрес вашего запущенного бэка
+
+// Элементы DOM
 const uploadForm = document.getElementById("upload-form");
 const checkForm = document.getElementById("check-form");
 const getReportsButton = document.getElementById("get-reports");
+const uploadResult = document.getElementById("upload-result");
+const checkResult = document.getElementById("check-result");
+const reportsList = document.getElementById("reports-list");
 
+// Загрузка файла
 uploadForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const fileInput = document.getElementById("file");
@@ -9,46 +16,48 @@ uploadForm.addEventListener("submit", async (event) => {
     formData.append("file", fileInput.files[0]);
 
     try {
-        const response = await fetch("http://localhost:8000/upload-requirements/", {
+        const response = await fetch(`${API_BASE_URL}/upload-requirements/`, {
             method: "POST",
             body: formData,
         });
         const result = await response.json();
-        document.getElementById("upload-result").innerText = result.message || "Ошибка загрузки";
+        uploadResult.innerText = result.message || "Ошибка загрузки файла";
     } catch (error) {
-        document.getElementById("upload-result").innerText = "Ошибка соединения с сервером";
+        uploadResult.innerText = "Ошибка соединения с сервером";
     }
 });
 
+// Проверка сайта
 checkForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const urlInput = document.getElementById("url");
 
     try {
-        const response = await fetch("http://localhost:8000/check-site/", {
+        const response = await fetch(`${API_BASE_URL}/check-site/`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: urlInput.value }),
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ url: urlInput.value }),
         });
         const result = await response.json();
-        const checkResult = result.passed
-            ? "Сайт соответствует всем требованиям"
-            : `Найдены несоответствия: ${result.violations.join(", ")}`;
-        document.getElementById("check-result").innerText = checkResult;
+        checkResult.innerText = result.result || "Результат проверки неизвестен";
     } catch (error) {
-        document.getElementById("check-result").innerText = "Ошибка соединения с сервером";
+        checkResult.innerText = "Ошибка соединения с сервером";
     }
 });
 
+// Получение отчётов
 getReportsButton.addEventListener("click", async () => {
     try {
-        const response = await fetch("http://localhost:8000/reports/");
+        const response = await fetch(`${API_BASE_URL}/reports/`);
         const reports = await response.json();
-        const reportsList = document.getElementById("reports-list");
-        reportsList.innerHTML = reports
-            .map((report) => `<p>${report.url}: ${report.report}</p>`)
-            .join("");
+        if (Array.isArray(reports)) {
+            reportsList.innerHTML = reports
+                .map((report) => `<p>${report.url}: ${report.result}</p>`)
+                .join("");
+        } else {
+            reportsList.innerText = reports.message || "Нет доступных отчётов";
+        }
     } catch (error) {
-        document.getElementById("reports-list").innerText = "Ошибка получения отчётов";
+        reportsList.innerText = "Ошибка получения отчётов";
     }
 });

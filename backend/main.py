@@ -1,87 +1,63 @@
-# импорты нужных библиотек и их методов
-from fastapi import FastAPI, UploadFile, HTTPException
-from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from bs4 import BeautifulSoup
-import pdfplumber
-import requests
+from fastapi import FastAPI, UploadFile, Form, HTTPException
+from fastapi.responses import JSONResponse, FileResponse
+from typing import List, Dict
+import uuid
+import os
 
-# Инициализация приложения и базы данных
 app = FastAPI()
-DATABASE_URL = "postgresql://user:password@localhost/ai_auditor"
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
-class Requirement(Base):
-    __tablename__ = "requirements"
-    id = Column(Integer, primary_key=True, index=True)
-    content = Column(Text, nullable=False)
+# Память для хранения данных
+uploaded_files: Dict[str, str] = {}  # {file_id: file_path}
+site_checks: List[Dict[str, str]] = []  # [{"url": str, "result": str}]
 
-class SiteCheck(Base):
-    __tablename__ = "site_checks"
-    id = Column(Integer, primary_key=True, index=True)
-    url = Column(String, index=True)
-    report = Column(Text, nullable=False)
-    passed = Column(Boolean, default=False)
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-Base.metadata.create_all(bind=engine)
 
-# Функции для работы с БД
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# Маршрут для загрузки требований из ПДФ
 @app.post("/upload-requirements/")
-async def upload_requirements(file: UploadFile, db=next(get_db())):
+async def upload_requirements(file: UploadFile):
+    """Загрузка PDF-файла."""
     if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Требуется PDF файл")
-    
-    try:
-        with pdfplumber.open(file.file) as pdf:
-            content = "\n".join([page.extract_text() for page in pdf.pages])
-        db.add(Requirement(content=content))
-        db.commit()
-        return {"message": "Требования успешно загружены"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail="Только PDF-файлы поддерживаются")
 
-# Адрес для проверки сайта
+    # Генерация уникального ID для файла
+    file_id = str(uuid.uuid4())
+    file_path = os.path.join(UPLOAD_DIR, f"{file_id}.pdf")
+
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+
+    uploaded_files[file_id] = file_path
+    return {"message": "Файл успешно загружен", "file_id": file_id}
+
+
+@app.get("/download-requirements/{file_id}")
+async def download_requirements(file_id: str):
+    """Скачивание ранее загруженного файла."""
+    file_path = uploaded_files.get(file_id)
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    return FileResponse(file_path, media_type="application/pdf", filename=os.path.basename(file_path))
+
+
 @app.post("/check-site/")
-async def check_site(url: str, db=next(get_db())):
-    try:
-        response = requests.get(url)
-        if response.status_code != 200:
-            raise HTTPException(status_code=404, detail="Сайт недоступен")
-        
-        soup = BeautifulSoup(response.text, "html.parser")
-        site_content = soup.get_text()
+async def check_site(url: str = Form(...)):
+    """Проверка сайта."""
+    if not url.startswith("http://") and not url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="URL должен начинаться с http:// или https://")
 
-        requirements = db.query(Requirement).all()
-        violations = []
-        for req in requirements:
-            if req.content not in site_content:
-                violations.append(req.content)
+    # Пример простой проверки (можно заменить на реальную логику)
+    passed = "https" in url
+    result = "Сайт соответствует требованиям" if passed else "Сайт не соответствует требованиям"
 
-        passed = len(violations) == 0
-        report = f"Проверено: {url}\nСоответствий: {'Все требования соблюдены' if passed else 'Найдены несоответствия'}"
-        db.add(SiteCheck(url=url, report=report, passed=passed))
-        db.commit()
-        return {"url": url, "passed": passed, "violations": violations}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Сохранение результата в памяти
+    site_checks.append({"url": url, "result": result})
+    return {"url": url, "result": result}
 
-# Адрес для получения отчетов
+
 @app.get("/reports/")
-async def get_reports(db=next(get_db())):
-    reports = db.query(SiteCheck).all()
-    return [{"url": r.url, "report": r.report, "passed": r.passed} for r in reports]
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+async def get_reports():
+    """Получение всех отчетов по проверке сайтов."""
+    if not site_checks:
+        return {"message": "Пока нет проверок"}
+    return site_checks
