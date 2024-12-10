@@ -1,63 +1,67 @@
 from fastapi import FastAPI, UploadFile, Form, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
-from typing import List, Dict
+from fastapi.responses import JSONResponse
+from typing import Dict
 import uuid
 import os
+from utils import extract_text_from_pdf, analyze_website
 
 app = FastAPI()
 
 # Память для хранения данных
-uploaded_files: Dict[str, str] = {}  # {file_id: file_path}
-site_checks: List[Dict[str, str]] = []  # [{"url": str, "result": str}]
+uploaded_requirements: Dict[str, str] = {}  # {file_id: текст требований}
+last_report: Dict[str, str] = {}  # Последний отчет {url: отчет}
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-
 @app.post("/upload-requirements/")
 async def upload_requirements(file: UploadFile):
-    #Загрузка PDF-файла.
+    #Загрузка и извлечение текста из PDF с требованиями
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Только PDF-файлы поддерживаются")
 
-    # Генерация уникального ID для файла
+    # Генерация уникального ID и сохранение файла
     file_id = str(uuid.uuid4())
     file_path = os.path.join(UPLOAD_DIR, f"{file_id}.pdf")
 
     with open(file_path, "wb") as f:
         f.write(await file.read())
 
-    uploaded_files[file_id] = file_path
+    # Извлечение текста из PDF
+    try:
+        extracted_text = extract_text_from_pdf(file_path)
+        uploaded_requirements[file_id] = extracted_text
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Ошибка обработки PDF")
+
     return {"message": "Файл успешно загружен", "file_id": file_id}
 
-
-@app.get("/download-requirements/{file_id}")
-async def download_requirements(file_id: str):
-    #Скачивание ранее загруженного файла.
-    file_path = uploaded_files.get(file_id)
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Файл не найден")
-    return FileResponse(file_path, media_type="application/pdf", filename=os.path.basename(file_path))
-
-
-@app.post("/check-site/")
-async def check_site(url: str = Form(...)):
-    #Проверка сайта.
+@app.post("/analyze-site/")
+async def analyze_site(url: str = Form(...)):
+    #Анализ структуры и контента сайта по требованиям
     if not url.startswith("http://") and not url.startswith("https://"):
         raise HTTPException(status_code=400, detail="URL должен начинаться с http:// или https://")
 
-    # Пример простой проверки (можно заменить на реальную логику)
-    passed = "https" in url
-    result = "Сайт соответствует требованиям" if passed else "Сайт не соответствует требованиям"
+    if not uploaded_requirements:
+        raise HTTPException(status_code=400, detail="Сначала загрузите требования")
 
-    # Сохранение результата в памяти
-    site_checks.append({"url": url, "result": result})
+    # Берем последние загруженные требования
+    latest_requirements = list(uploaded_requirements.values())[-1]
+
+    # Анализ сайта
+    try:
+        result = analyze_website(url, latest_requirements)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Ошибка анализа сайта")
+
+    # Сохраняем отчет
+    global last_report
+    last_report = {"url": url, "result": result}
     return {"url": url, "result": result}
 
-
-@app.get("/reports/")
-async def get_reports():
-    #Получение всех отчетов по проверке сайтов.
-    if not site_checks:
-        return {"message": "Пока нет проверок"}
-    return site_checks
+@app.get("/get-report/")
+async def get_report():
+    #Возвращает последний отчет
+    if not last_report:
+        return {"message": "Пока нет отчетов"}
+    return last_report
