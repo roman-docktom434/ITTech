@@ -16,7 +16,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/upload-requirements/")
 async def upload_requirements(file: UploadFile):
-    """Загрузка PDF-файла."""
+    #Загрузка PDF-файла.
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Только PDF-файлы поддерживаются")
 
@@ -33,7 +33,7 @@ async def upload_requirements(file: UploadFile):
 
 @app.get("/download-requirements/{file_id}")
 async def download_requirements(file_id: str):
-    """Скачивание ранее загруженного файла."""
+    #Скачивание ранее загруженного файла.
     file_path = uploaded_files.get(file_id)
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Файл не найден")
@@ -42,7 +42,7 @@ async def download_requirements(file_id: str):
 
 @app.post("/check-site/")
 async def check_site(url: str = Form(...)):
-    """Проверка сайта."""
+    #Проверка сайта.
     if not url.startswith("http://") and not url.startswith("https://"):
         raise HTTPException(status_code=400, detail="URL должен начинаться с http:// или https://")
 
@@ -57,7 +57,7 @@ async def check_site(url: str = Form(...)):
 
 @app.get("/reports/")
 async def get_reports():
-    """Получение всех отчетов по проверке сайтов."""
+    #Получение всех отчетов по проверке сайтов.
     if not site_checks:
         return {"message": "Пока нет проверок"}
     return site_checks
