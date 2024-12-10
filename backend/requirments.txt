@@ -4,3 +4,4 @@ pdfplumber
 bs4
 sqlalchemy
 python-multipart
+uvicorn

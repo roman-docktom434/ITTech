@@ -2,7 +2,7 @@
 body {
     background-color: #1a1a2f;
     color: #ffffff;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
+    font-family:cursive;
     margin: 0;
     padding: 0;
     overflow-x: hidden;
@@ -43,6 +43,7 @@ header {
 }
 
 header h1 {
+    font-family: cursive;
     font-size: 5rem;
     color: #ff00cc;
     text-transform: uppercase;

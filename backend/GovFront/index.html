@@ -3,37 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Основной фронт</title>
+    <title>Фронт в гос формате</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Comic+Sans+MS&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>AI Auditor</h1>
+            <h1>Проверка соответствия</h1>
         </header>
         <main>
             <section class="upload-section">
-                <h2>Загрузка требований</h2>
+                <h2>Загрузить файл</h2>
                 <form id="upload-form">
-                    <label for="file">Выберите PDF:</label>
+                    <label for="file">Выберите файл (PDF):</label>
                     <input type="file" id="file" accept=".pdf" required>
                     <button type="submit">Загрузить</button>
                 </form>
                 <div id="upload-result"></div>
             </section>
             <section class="check-section">
-                <h2>Проверка сайта</h2>
+                <h2>Проверить сайт</h2>
                 <form id="check-form">
-                    <label for="url">URL сайта:</label>
+                    <label for="url">Введите URL:</label>
                     <input type="url" id="url" placeholder="https://example.com" required>
                     <button type="submit">Проверить</button>
                 </form>
                 <div id="check-result"></div>
             </section>
             <section class="reports-section">
-                <h2>Отчёты</h2>
-                <button id="get-reports">Получить отчёты</button>
+                <h2>Получить отчёты</h2>
+                <button id="get-reports">Показать отчёты</button>
                 <div id="reports-list"></div>
             </section>
         </main>
