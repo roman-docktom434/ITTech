@@ -1,63 +1,109 @@
-const API_BASE_URL = "http://127.0.0.1:8000"; // Убедитесь, что бэк работает на этом адресе
+// Получаем элементы для работы
+const uploadForm = document.getElementById('upload-form');
+const fileInput = document.getElementById('file');
+const uploadResult = document.getElementById('upload-result');
 
-// Элементы DOM
-const uploadForm = document.getElementById("upload-form");
-const checkForm = document.getElementById("check-form");
-const getReportsButton = document.getElementById("get-reports");
-const uploadResult = document.getElementById("upload-result");
-const checkResult = document.getElementById("check-result");
-const reportsList = document.getElementById("reports-list");
+const checkForm = document.getElementById('check-form');
+const urlInput = document.getElementById('url');
+const checkResult = document.getElementById('check-result');
 
-// Загрузка файла
-uploadForm.addEventListener("submit", async (event) => {
+const getReportsButton = document.getElementById('get-reports');
+const reportsList = document.getElementById('reports-list');
+
+// Обработчик загрузки файла
+uploadForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const fileInput = document.getElementById("file");
+
+    const file = fileInput.files[0];
+    if (!file) {
+        uploadResult.textContent = 'Пожалуйста, выберите файл.';
+        return;
+    }
+
     const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+    formData.append('file', file);
 
     try {
-        const response = await fetch(`${API_BASE_URL}/upload-requirements/`, {
-            method: "POST",
+        uploadResult.textContent = 'Загрузка файла...';
+
+        const response = await fetch('http://127.0.0.1:8000/upload-requirements/', {
+            method: 'POST',
             body: formData,
         });
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки файла');
+        }
+
         const result = await response.json();
-        uploadResult.innerText = result.message || "Ошибка загрузки файла";
+        uploadResult.innerHTML = `PDF успешно загружен: ${result.filename}`;
     } catch (error) {
-        uploadResult.innerText = "Ошибка соединения с сервером";
+        uploadResult.textContent = `Ошибка: ${error.message}`;
     }
 });
 
-// Проверка сайта
-checkForm.addEventListener("submit", async (event) => {
+// Обработчик проверки сайта
+checkForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const urlInput = document.getElementById("url");
+
+    const url = urlInput.value;
+    const file = fileInput.files[0];
+
+    if (!url || !file) {
+        checkResult.textContent = 'Пожалуйста, загрузите файл и введите URL.';
+        return;
+    }
+
+    checkResult.textContent = 'Проверка сайта...';
 
     try {
-        const response = await fetch(`${API_BASE_URL}/check-site/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({ url: urlInput.value }),
+        const formData = new FormData();
+        formData.append('url', url);
+        formData.append('pdf_filename', file.name);
+
+        const response = await fetch('http://127.0.0.1:8000/check-site/', {
+            method: 'POST',
+            body: formData,
         });
+
+        if (!response.ok) {
+            throw new Error('Ошибка проверки сайта');
+        }
+
         const result = await response.json();
-        checkResult.innerText = result.result || "Результат проверки неизвестен";
+        const { totalRequirements, matchedRequirements } = result;
+
+        // Упрощенный вывод
+        checkResult.innerHTML = `
+            Результат: Удовлетворено требований ${matchedRequirements}/${totalRequirements}
+        `;
     } catch (error) {
-        checkResult.innerText = "Ошибка соединения с сервером";
+        checkResult.textContent = `Ошибка: ${error.message}`;
     }
 });
 
 // Получение отчётов
-getReportsButton.addEventListener("click", async () => {
+getReportsButton.addEventListener('click', async () => {
     try {
-        const response = await fetch(`${API_BASE_URL}/reports/`);
-        const reports = await response.json();
-        if (Array.isArray(reports)) {
-            reportsList.innerHTML = reports
-                .map((report) => `<p>${report.url}: ${report.result}</p>`)
-                .join("");
-        } else {
-            reportsList.innerText = reports.message || "Нет доступных отчётов";
+        reportsList.innerHTML = 'Загрузка отчётов...';
+
+        const response = await fetch('http://127.0.0.1:8000/reports/');
+        if (!response.ok) {
+            throw new Error('Ошибка получения отчётов');
         }
+
+        const reports = await response.json();
+        if (reports.length === 0) {
+            reportsList.textContent = 'Нет доступных отчётов.';
+            return;
+        }
+
+        reportsList.innerHTML = reports.map(report => `
+            <div class="report-item">
+                <a href="${report.url}" target="_blank">${report.name}</a>
+            </div>
+        `).join('');
     } catch (error) {
-        reportsList.innerText = "Ошибка получения отчётов";
+        reportsList.textContent = `Ошибка: ${error.message}`;
     }
 });
