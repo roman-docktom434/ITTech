@@ -3,35 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Фронт в гос формате</title>
+    <title>Образовательный сайт - Проверка</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
     <div class="container">
-        <header>
-            <h1>Проверка соответствия</h1>
-        </header>
-        <main>
-            <section class="upload-section">
-                <h2>Загрузить файл</h2>
-                <form id="upload-form">
-                    <label for="file">Выберите файл (PDF):</label>
-                    <input type="file" id="file" accept=".pdf" required>
-                    <button type="submit">Загрузить</button>
-                </form>
-                <div id="upload-result"></div>
-            </section>
-            <section class="check-section">
-                <h2>Проверить сайт</h2>
-                <form id="check-form">
-                    <label for="url">Введите URL:</label>
-                    <input type="url" id="url" placeholder="https://example.com" required>
-                    <button type="submit">Проверить</button>
-                </form>
-                <div id="check-result"></div>
-            </section>
-        </main>
+        <h1>Проверка сайта и требований</h1>
+
+        <section>
+            <h2>Загрузить PDF с требованиями</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="pdfFile" name="file" accept=".pdf" required>
+                <button type="submit">Загрузить и проверить</button>
+            </form>
+            <div id="pdfResult"></div>
+        </section>
+
+        <section>
+            <h2>Проверка сайта</h2>
+            <form id="siteForm">
+                <input type="url" id="siteUrl" name="url" placeholder="Введите URL сайта" required>
+                <button type="submit">Проверить сайт</button>
+            </form>
+            <div id="siteResult"></div>
+        </section>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>

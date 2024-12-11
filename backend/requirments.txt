@@ -1,4 +1,4 @@
-fastapi
+fastapi[all]
 requests
 pdfplumber
 bs4
@@ -6,4 +6,6 @@ sqlalchemy
 python-multipart
 uvicorn
 PyPDF2
-G4FClient
+g4f
+pydantic
+beautifulsoup4

@@ -1,163 +1,122 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from pathlib import Path
+import pdfplumber
+from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import os
-import logging
-import PyPDF2
-import requests
-from datetime import datetime
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
-
+# Настроим CORS для разрешения запросов с фронтенда
 app = FastAPI()
 
-# Разрешаем CORS для всех доменов
+# Разрешаем доступ с домена 127.0.0.1:5500 (или можете разрешить все домены с '*')
+origins = [
+    "http://127.0.0.1:5500",  # Фронтенд-сервер
+    "http://localhost:5500",  # Можно добавить локальный сервер
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,  # Разрешаем доступ только с этих доменов
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Разрешаем все методы
+    allow_headers=["*"],  # Разрешаем все заголовки
 )
 
-# Модели данных для запросов и ответов
-class CheckSiteResponse(BaseModel):
-    result: str
-    score: int
-    issues: list
-
-class Report(BaseModel):
+# Модели для валидации данных
+class SiteRequest(BaseModel):
     url: str
-    result: str
-    score: int
-    issues: list
 
-# Статус сервера
+# utils.py (для обработки файлов и других утилит)
+def allowed_file(filename: str) -> bool:
+    """
+    Проверяет, является ли файл допустимым для загрузки.
+    Разрешены только PDF файлы.
+    """
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'pdf'
+
+# Логика проверки требований
+def check_site_requirements(site_url: str) -> dict:
+    """
+    Проверяет сайт на соответствие требованиям.
+    Это будет заглушка для реальной проверки сайта.
+    """
+    site_data = {
+        "valid": True,
+        "errors": []
+    }
+
+    # Пример проверки: проверка наличия определённого контента на сайте
+    if "example.com" not in site_url:
+        site_data["valid"] = False
+        site_data["errors"].append("Сайт не соответствует требованиям.")
+
+    return site_data
+
+# Логика обработки и проверки PDF
+def process_pdf_and_check_site(pdf_path: str) -> dict:
+    """
+    Обрабатывает PDF файл и проверяет его содержимое на соответствие
+    правилам для образовательных сайтов.
+    """
+    site_data = {
+        "valid": True,
+        "errors": []
+    }
+
+    with pdfplumber.open(pdf_path) as pdf:
+        first_page = pdf.pages[0]
+        text = first_page.extract_text()
+
+        # Пример проверки: проверка наличия ключевых слов
+        if "образование" not in text:
+            site_data["valid"] = False
+            site_data["errors"].append("Отсутствует ключевое слово 'образование'.")
+
+    return site_data
+
+# Функция для загрузки требований
+def upload_requirements(file: UploadFile) -> dict:
+    """
+    Загружает файл с требованиями для сайта и проверяет его содержание.
+    """
+    if file and allowed_file(file.filename):
+        file_location = f"uploads/{file.filename}"
+        with open(file_location, "wb") as f:
+            f.write(file.file.read())
+        
+        result = process_pdf_and_check_site(file_location)
+        return result
+
+    return {"message": "Недопустимый формат файла"}
+
+@app.post("/upload_pdf/")
+async def upload_pdf(file: UploadFile = File(...)):
+    """
+    Обрабатывает загруженный PDF файл и проверяет его на соответствие.
+    """
+    result = upload_requirements(file)
+    return JSONResponse(content=result)
+
+@app.post("/check_site/")
+async def check_site(data: SiteRequest):
+    """
+    Проверяет сайт на соответствие требованиям.
+    """
+    result = check_site_requirements(data.url)
+    return JSONResponse(content=result)
+
 @app.get("/status/")
 async def get_status():
-    return {"status": "Server is running"}
+    """
+    Получить статус сервера.
+    """
+    return {"status": "running", "version": "1.0.0"}
 
-# Загружаем PDF и извлекаем требования
-def extract_requirements_from_pdf(file_content):
-    try:
-        pdf_reader = PyPDF2.PdfReader(file_content)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-        # Здесь можно обработать текст для извлечения конкретных требований
-        return text.split("\n")  # Возвращаем требования построчно
-    except Exception as e:
-        logging.error(f"Ошибка при обработке PDF: {str(e)}")
-        return []
+# Настройка директории для хранения файлов
+uploads_dir = Path("uploads")
+uploads_dir.mkdir(parents=True, exist_ok=True)
 
-# Проверка сайта на основе извлеченных требований
-def check_site_against_requirements(url, requirements):
-    issues = []
-    satisfied_count = 0  # Считаем удовлетворенные требования
-    total_requirements = len(requirements)  # Общее количество требований
-    
-    # Пример проверки сайта по требованию (можно расширить)
-    response = requests.get(url)
-    if response.status_code != 200:
-        issues.append(f"Сайт {url} недоступен.")
-    else:
-        for requirement in requirements:
-            if requirement.lower() in response.text.lower():
-                satisfied_count += 1  # Удовлетворено требование
-            else:
-                issues.append(f"Не найдено требование: {requirement}")
-
-    score = (satisfied_count / total_requirements) * 10 if total_requirements > 0 else 0  # Оценка из 10 на основе удовлетворенных требований
-    return issues, satisfied_count, total_requirements, score
-
-# Загружаем файл PDF
-@app.post("/upload-requirements/")
-async def upload_file(file: UploadFile = File(...)):
-    try:
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, file.filename)
-        
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
-        
-        logging.info(f"Файл {file.filename} успешно загружен.")
-        return {"message": f"Файл {file.filename} успешно загружен", "filename": file.filename}
-    except Exception as e:
-        logging.error(f"Ошибка при загрузке файла: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Ошибка загрузки: {str(e)}")
-
-# Проверка сайта
-@app.post("/check-site/")
-async def check_site(url: str = Form(...), pdf_filename: str = Form(...)):
-    try:
-        # Чтение PDF с требованиями
-        pdf_path = os.path.join("uploads", pdf_filename)
-        with open(pdf_path, "rb") as f:
-            requirements = extract_requirements_from_pdf(f)
-        
-        if not requirements:
-            raise HTTPException(status_code=400, detail="Требования не найдены в PDF")
-
-        # Проверка сайта
-        issues, satisfied_count, total_requirements, score = check_site_against_requirements(url, requirements)
-
-        # Формирование результата
-        if satisfied_count == total_requirements:
-            result = "Сайт соответствует всем требованиям."
-        else:
-            result = f"Сайт не соответствует всем требованиям. Удовлетворено требований {satisfied_count}/{total_requirements}"
-
-        return CheckSiteResponse(
-            result=result,
-            score=int(score),
-            issues=issues
-        )
-
-    except Exception as e:
-        logging.error(f"Ошибка при проверке сайта: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Ошибка при проверке: {str(e)}")
-
-# Формирование отчёта
-@app.post("/generate-report/") 
-async def generate_report(url: str = Form(...), pdf_filename: str = Form(...)):
-    try:
-        # Чтение PDF с требованиями
-        pdf_path = os.path.join("uploads", pdf_filename)
-        with open(pdf_path, "rb") as f:
-            requirements = extract_requirements_from_pdf(f)
-
-        if not requirements:
-            raise HTTPException(status_code=400, detail="Требования не найдены в PDF")
-
-        # Проверка сайта
-        issues, satisfied_count, total_requirements, score = check_site_against_requirements(url, requirements)
-
-        report = {
-            "url": url,
-            "result": "Соответствует" if not issues else "Не соответствует",
-            "score": score,
-            "issues": issues,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-        report_filename = f"report_{url.replace('http://', '').replace('https://', '').replace('/', '_')}.txt"
-        report_path = os.path.join("reports", report_filename)
-        os.makedirs("reports", exist_ok=True)
-
-        with open(report_path, "w") as f:
-            f.write(f"URL: {url}\n")
-            f.write(f"Результат: {report['result']}\n")
-            f.write(f"Оценка: {report['score']} / 10\n")
-            f.write(f"Проблемы:\n")
-            for issue in report['issues']:
-                f.write(f"- {issue}\n")
-            f.write(f"\nВремя создания отчета: {report['timestamp']}")
-
-        return JSONResponse(content={"message": "Отчёт сформирован", "report_url": f"/reports/{report_filename}"})
-    except Exception as e:
-        logging.error(f"Ошибка при формировании отчёта: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Ошибка при формировании отчёта: {str(e)}")
+# Основная точка входа
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)

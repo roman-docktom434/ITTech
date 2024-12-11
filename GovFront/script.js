@@ -1,109 +1,66 @@
-// Получаем элементы для работы
-const uploadForm = document.getElementById('upload-form');
-const fileInput = document.getElementById('file');
-const uploadResult = document.getElementById('upload-result');
+document.addEventListener("DOMContentLoaded", function() {
 
-const checkForm = document.getElementById('check-form');
-const urlInput = document.getElementById('url');
-const checkResult = document.getElementById('check-result');
+    // Обработка загрузки PDF
+    document.getElementById("uploadForm").addEventListener("submit", async function(event) {
+        event.preventDefault();
 
-const getReportsButton = document.getElementById('get-reports');
-const reportsList = document.getElementById('reports-list');
-
-// Обработчик загрузки файла
-uploadForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-
-    const file = fileInput.files[0];
-    if (!file) {
-        uploadResult.textContent = 'Пожалуйста, выберите файл.';
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        uploadResult.textContent = 'Загрузка файла...';
-
-        const response = await fetch('http://127.0.0.1:8000/upload-requirements/', {
-            method: 'POST',
-            body: formData,
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка загрузки файла');
-        }
-
-        const result = await response.json();
-        uploadResult.innerHTML = `PDF успешно загружен: ${result.filename}`;
-    } catch (error) {
-        uploadResult.textContent = `Ошибка: ${error.message}`;
-    }
-});
-
-// Обработчик проверки сайта
-checkForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-
-    const url = urlInput.value;
-    const file = fileInput.files[0];
-
-    if (!url || !file) {
-        checkResult.textContent = 'Пожалуйста, загрузите файл и введите URL.';
-        return;
-    }
-
-    checkResult.textContent = 'Проверка сайта...';
-
-    try {
         const formData = new FormData();
-        formData.append('url', url);
-        formData.append('pdf_filename', file.name);
+        const fileInput = document.getElementById("pdfFile");
 
-        const response = await fetch('http://127.0.0.1:8000/check-site/', {
-            method: 'POST',
-            body: formData,
-        });
+        if (fileInput.files.length > 0) {
+            formData.append("file", fileInput.files[0]);
 
-        if (!response.ok) {
-            throw new Error('Ошибка проверки сайта');
+            try {
+                const response = await fetch("http://127.0.0.1:8000/upload_pdf/", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.valid) {
+                    document.getElementById("pdfResult").innerHTML = "PDF файл прошел проверку!";
+                } else {
+                    document.getElementById("pdfResult").innerHTML = "Ошибки в PDF: " + result.errors.join(", ");
+                }
+
+            } catch (error) {
+                document.getElementById("pdfResult").innerHTML = "Ошибка при загрузке файла.";
+                console.error(error);
+            }
         }
+    });
 
-        const result = await response.json();
-        const { totalRequirements, matchedRequirements } = result;
+    // Обработка проверки сайта
+    document.getElementById("siteForm").addEventListener("submit", async function(event) {
+        event.preventDefault();
 
-        // Упрощенный вывод
-        checkResult.innerHTML = `
-            Результат: Удовлетворено требований ${matchedRequirements}/${totalRequirements}
-        `;
-    } catch (error) {
-        checkResult.textContent = `Ошибка: ${error.message}`;
-    }
-});
+        const url = document.getElementById("siteUrl").value;
 
-// Получение отчётов
-getReportsButton.addEventListener('click', async () => {
-    try {
-        reportsList.innerHTML = 'Загрузка отчётов...';
+        try {
+            const response = await fetch("http://127.0.0.1:8000/check_site/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ url: url })
+            });
 
-        const response = await fetch('http://127.0.0.1:8000/reports/');
-        if (!response.ok) {
-            throw new Error('Ошибка получения отчётов');
+            const result = await response.json();
+
+            // Проверка полученного результата
+            console.log(result);  // Логируем результат для отладки
+
+            if (result.valid) {
+                document.getElementById("siteResult").innerHTML = "Сайт прошел проверку!";
+            } else {
+                document.getElementById("siteResult").innerHTML = "Ошибки на сайте: " + result.errors.join(", ");
+            }
+
+        } catch (error) {
+            document.getElementById("siteResult").innerHTML = "Ошибка при проверке сайта.";
+            console.error(error);
         }
+    });
 
-        const reports = await response.json();
-        if (reports.length === 0) {
-            reportsList.textContent = 'Нет доступных отчётов.';
-            return;
-        }
-
-        reportsList.innerHTML = reports.map(report => `
-            <div class="report-item">
-                <a href="${report.url}" target="_blank">${report.name}</a>
-            </div>
-        `).join('');
-    } catch (error) {
-        reportsList.textContent = `Ошибка: ${error.message}`;
-    }
 });
